@@ -1,11 +1,16 @@
 [tools]
+ruby = "4.0.0"
 # Using pipx backend because pre-commit 4.5.0+ stopped publishing sha256sum files,
 # breaking aqua backend
 "pipx:pre-commit" = "4.5.1"
 
 [tasks.setup]
-description = "Install pre-commit hooks"
-run = "pre-commit install --hook-type pre-commit && pre-commit install --hook-type commit-msg"
+description = "Install dependencies and pre-commit hooks"
+run = '''
+  gem install rails
+  pre-commit install --hook-type pre-commit
+  pre-commit install --hook-type commit-msg
+'''
 
 [tasks.lint]
 description = "Run all pre-commit hooks"

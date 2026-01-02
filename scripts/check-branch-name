@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Get current branch name
+branch_name=$(git symbolic-ref --short HEAD 2>/dev/null || echo "")
+
+# Skip check for main/master branches
+if [[ "$branch_name" == "main" ]] || [[ "$branch_name" == "master" ]]; then
+    exit 0
+fi
+
+# Pattern: {type}-{issue}-{slug}
+# Type: lowercase letters/numbers/hyphens
+# Issue: number
+# Slug: lowercase letters/numbers/hyphens
+pattern='^[a-z][a-z0-9-]*-[0-9]+-[a-z0-9-]+$'
+
+if ! echo "$branch_name" | grep -Eq "$pattern"; then
+    echo "ERROR: Invalid branch name format" >&2
+    echo "" >&2
+    echo "Expected format: {type}-{issue}-{slug}" >&2
+    echo "  - type: lowercase letters/numbers/hyphens (must start with letter)" >&2
+    echo "  - issue: issue number" >&2
+    echo "  - slug: lowercase letters/numbers/hyphens" >&2
+    echo "" >&2
+    echo "Examples:" >&2
+    echo "  - feat-123-add-user-auth" >&2
+    echo "  - chore-1-setup-monorepo-tooling" >&2
+    echo "  - bug-fix-42-resolve-crash" >&2
+    echo "" >&2
+    echo "Your branch: $branch_name" >&2
+    exit 1
+fi
+
+echo "✓ Branch name format is valid"

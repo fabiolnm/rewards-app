@@ -1,15 +1,14 @@
-# Implementation Plan: Docker Compose + Postgres + Hadolint
+# Implementation Plan: Docker Compose + Postgres
 
 ## Overview
 
-Add Docker Compose infrastructure with PostgreSQL 15 database and Hadolint linting.
+Add Docker Compose infrastructure with PostgreSQL 15 database.
 
 ## Deliverables
 
 1. `docker-compose.yml` - Postgres service with volume and trust auth
-2. `.pre-commit-config.yaml` - Add Hadolint hook
-3. `.gitignore` - Protect Docker override files
-4. `.dockerignore` - Future-proof for Dockerfile builds
+2. `.gitignore` - Protect Docker override files
+3. `.dockerignore` - Future-proof for Dockerfile builds
 
 ## Implementation Steps
 
@@ -52,38 +51,14 @@ Exclude from Docker build context:
 - IDE files
 - Dependencies (node_modules, vendor)
 
-### 4. Add Hadolint to .pre-commit-config.yaml
-
-Add hook entry with comment explaining version pinning rules:
-
-- Repo: <https://github.com/hadolint/hadolint>
-- Version: v2.14.0
-- Hook: hadolint-docker
-- Files: Dockerfile.*
-
-Add YAML comment above hook explaining:
-
-- DL3008: Enforces version pinning for apt-get install (Debian/Ubuntu)
-- DL3018: Enforces version pinning for apk add (Alpine)
-- Purpose: Ensure reproducible builds
-
 ## Testing
 
 1. **Start database**: `docker-compose up db`
 2. **Test connection**: `psql -h localhost -U rewards -d rewards_development` (no password)
 3. **Test persistence**: Create table, restart container, verify data exists
-4. **Test Hadolint**: `pre-commit run hadolint-docker --all-files`
-
-## Issue Drift
-
-Original issue scope needs update:
-
-- Remove `.env.example` deliverable (not needed with trust auth)
-- Update "database credentials" to "database configuration"
 
 ## Critical Files
 
 - `docker-compose.yml` - Service definitions with trust auth
-- `.pre-commit-config.yaml` - Hadolint hook
 - `.gitignore` - Protect Docker override files
 - `.dockerignore` - Exclude files from Docker context

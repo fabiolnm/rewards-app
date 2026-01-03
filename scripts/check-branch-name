@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Get current branch name
-branch_name=$(git symbolic-ref --short HEAD 2>/dev/null || echo "")
+# Get current branch name from env var or git
+branch_name="${BRANCH_NAME:-$(git symbolic-ref --short HEAD 2>/dev/null || echo "")}"
 
 # Skip check for main/master branches
 if [[ "$branch_name" == "main" ]] || [[ "$branch_name" == "master" ]]; then

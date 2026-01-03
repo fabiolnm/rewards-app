@@ -1,8 +1,11 @@
 # Issue #6: Rails API Dockerfile
 
+**Merged:** Issue #20 (Add Hadolint pre-commit hook)
+
 ## Scope
 
 - Create Hadolint configuration for Dockerfile linting
+- Add Hadolint to pre-commit hooks and CI
 - Add Rails API service to docker-compose.yml
 - Verify existing Dockerfile passes linting
 
@@ -73,20 +76,43 @@ api:
 - Wait for db health check before starting
 - Mount source for development hot-reload
 
-### 4. Verify Hadolint
+### 4. Add Hadolint to pre-commit hooks
 
-Run `hadolint api/Dockerfile` to ensure it passes.
+Add hadolint-docker hook to `.pre-commit-config.yaml`:
+
+```yaml
+- repo: https://github.com/hadolint/hadolint
+  rev: v2.14.0
+  hooks:
+    - id: hadolint-docker
+      name: Lint Dockerfiles
+```
+
+### 5. Add Hadolint to CI workflow
+
+Add hadolint job to `.github/workflows/ci.yml` to run on all Dockerfiles.
+
+### 6. Verify Hadolint
+
+Run `hadolint api/Dockerfile` and `pre-commit run hadolint-docker --all-files`
+to ensure they pass.
 
 ## Files to Modify
 
 - `.hadolint.yaml` (create in root)
+- `.mise.toml` (add hadolint tool)
+- `api/Dockerfile` (fix linting warnings)
 - `api/config/database.yml` (update host line)
 - `docker-compose.yml` (add api service)
+- `.pre-commit-config.yaml` (add hadolint hook)
+- `.github/workflows/ci.yml` (add hadolint job)
 
 ## Commits Plan
 
 1. **Add Hadolint configuration**
    - Create `.hadolint.yaml` in root with linting rules
+   - Add hadolint 2.14.0 to `.mise.toml`
+   - Fix SC2046 warning in `api/Dockerfile`
    - Verify Dockerfile passes `hadolint` check
 
 2. **Configure database for Docker**
@@ -96,8 +122,17 @@ Run `hadolint api/Dockerfile` to ensure it passes.
    - Add `api` service with build context, port mapping, and db dependency
    - Test with `docker-compose up api`
 
+4. **Add Hadolint to pre-commit hooks**
+   - Add hadolint-docker hook to `.pre-commit-config.yaml`
+   - Test with `pre-commit run hadolint-docker --all-files`
+
+5. **Add Hadolint to CI**
+   - Add hadolint job to `.github/workflows/ci.yml`
+
 ## Acceptance Criteria
 
 - `hadolint api/Dockerfile` passes
+- `pre-commit run hadolint-docker --all-files` passes
 - `docker-compose up api` starts Rails
 - Health check at `http://localhost:3001/health` returns `{"status":"ok"}`
+- CI workflow includes hadolint check

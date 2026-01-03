@@ -2,3 +2,10 @@ failure-threshold: warning
 
 trustedRegistries:
   - docker.io
+
+# Ignore DL3008 (unpinned apt-get packages) because:
+# - The Ruby base image version already controls available package versions
+# - Pinning system packages is impractical and requires constant maintenance
+# - Package versions vary across base image updates, breaking builds unnecessarily
+ignored:
+  - DL3008

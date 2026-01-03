@@ -37,6 +37,13 @@ repos:
       - id: markdownlint
         args: ['--config', '.markdownlint.json']
 
+  # Dockerfile linting
+  - repo: https://github.com/hadolint/hadolint
+    rev: v2.14.0
+    hooks:
+      - id: hadolint-docker
+        name: Lint Dockerfiles
+
   # Ruby linting
   # Note: RuboCop hook assumes execution from repository root
   # Git commits must be made from the repository root directory

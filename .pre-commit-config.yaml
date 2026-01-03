@@ -19,6 +19,17 @@ repos:
         pass_filenames: false
         always_run: true
 
+  # Commit author validation
+  - repo: local
+    hooks:
+      - id: validate-commit-author
+        name: Validate commit author
+        entry: scripts/validate-commit-author
+        language: script
+        stages: [pre-commit]
+        pass_filenames: false
+        always_run: true
+
   # Markdown linting
   - repo: https://github.com/igorshubovych/markdownlint-cli
     rev: v0.37.0

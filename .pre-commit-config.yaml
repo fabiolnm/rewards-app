@@ -37,6 +37,18 @@ repos:
       - id: markdownlint
         args: ['--config', '.markdownlint.json']
 
+  # Ruby linting
+  # Note: RuboCop hook assumes execution from repository root
+  # Git commits must be made from the repository root directory
+  - repo: local
+    hooks:
+      - id: rubocop
+        name: RuboCop
+        entry: bash -c 'cd api && bin/rubocop'
+        language: system
+        files: \.rb$
+        pass_filenames: false
+
   # General file checks
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v5.0.0

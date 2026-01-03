@@ -8,6 +8,7 @@ ruby = "4.0.0"
 description = "Install dependencies and pre-commit hooks"
 run = '''
   gem install rails
+  cd api && bundle install
   pre-commit install --hook-type pre-commit
   pre-commit install --hook-type commit-msg
 '''

@@ -63,6 +63,15 @@ repos:
       - id: prettier
         files: '^web/.*\.(ts|tsx|json|css)$'
 
+  - repo: local
+    hooks:
+      - id: web-eslint
+        name: ESLint (web)
+        entry: bash -c 'cd web && mise exec -- bun x eslint -- "$@"' --
+        language: system
+        files: '^web/.*\.(ts|tsx)$'
+        pass_filenames: true
+
   # General file checks
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v5.0.0

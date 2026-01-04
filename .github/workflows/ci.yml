@@ -35,13 +35,75 @@ jobs:
         run: pip install pre-commit
 
       - name: Run pre-commit checks
-        run: pre-commit run --all-files --hook-stage pre-commit
+        run: |
+          pre-commit run --all-files --hook-stage pre-commit
+          pre-commit run prettier --all-files --hook-stage manual
         env:
+          # Skip hooks that run as separate steps or require specific setup
+          # Skipped: check-branch-name, validate-commit-author (run above),
+          #          rubocop, web-eslint (run as separate CI jobs)
+          # Skipped prettier in pre-commit stage (runs in manual stage with --check)
           # Runs: markdownlint, hadolint-docker, trailing-whitespace,
           #       end-of-file-fixer, check-yaml, check-added-large-files,
-          #       check-merge-conflict
-          # Skipped:
-          #   - check-branch-name (requires git context)
-          #   - validate-commit-author (requires git context)
-          #   - rubocop (separate step)
-          SKIP: check-branch-name,validate-commit-author,rubocop
+          #       check-merge-conflict, prettier (check-only)
+          SKIP: check-branch-name,validate-commit-author,rubocop,web-eslint,prettier
+
+  web-lint:
+    name: Web Lint (ESLint)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Run ESLint
+        run: bun run lint
+
+  web-typecheck:
+    name: Web Type Check (TypeScript)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Run TypeScript type check
+        run: bun run type-check
+
+  web-test:
+    name: Web Tests (Vitest)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Run Vitest tests
+        run: bun run test -- --run

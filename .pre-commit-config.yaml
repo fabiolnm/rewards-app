@@ -62,12 +62,19 @@ repos:
     hooks:
       - id: prettier
         files: '^web/.*\.(ts|tsx|json|css)$'
+        stages: [pre-commit]
+        args: ['--write']
+      - id: prettier
+        name: prettier (check-only for CI)
+        files: '^web/.*\.(ts|tsx|json|css)$'
+        stages: [manual]
+        args: ['--check']
 
   - repo: local
     hooks:
       - id: web-eslint
         name: ESLint (web)
-        entry: bash -c 'cd web && mise exec -- bun x eslint -- "$@"' --
+        entry: bash -c 'files=(); for f in "$@"; do files+=("${f#web/}"); done; cd web && mise exec -- bun x eslint -- "${files[@]}"' --
         language: system
         files: '^web/.*\.(ts|tsx)$'
         pass_filenames: true

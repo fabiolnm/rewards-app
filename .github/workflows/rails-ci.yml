@@ -10,7 +10,7 @@ env:
 
 jobs:
   api-security:
-    name: API Security (Brakeman & Bundler Audit)
+    name: API Security (Brakeman, Bundler Audit)
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -66,7 +66,7 @@ jobs:
         run: bin/rubocop -f github
 
   api-test:
-    name: API Tests
+    name: API Tests (Minitest)
     runs-on: ubuntu-latest
     defaults:
       run:

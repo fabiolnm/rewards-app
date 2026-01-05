@@ -48,7 +48,7 @@ Rails.application.configure do
 
   # Replace the default in-process and non-durable queuing backend for Active Job.
   config.active_job.queue_adapter = :solid_queue
-  config.solid_queue.connects_to = { database: { writing: :queue } }
+  config.solid_queue.connects_to = { database: { writing: :queue, reading: :queue } }
 
   # Ignore bad email addresses and do not raise email delivery errors.
   # Set this to true and configure the email server for immediate delivery to raise delivery errors.
@@ -77,11 +77,11 @@ Rails.application.configure do
   config.active_record.attributes_for_inspect = [ :id ]
 
   # Enable DNS rebinding protection and other `Host` header attacks.
-  # config.hosts = [
-  #   "example.com",     # Allow requests from example.com
-  #   /.*\.example\.com/ # Allow requests from subdomains like `www.example.com`
-  # ]
-  #
+  # Allow Fargate tasks and AWS internal hostnames
+  config.hosts << ENV.fetch("ALLOWED_HOST", nil) if ENV["ALLOWED_HOST"]
+  config.hosts << ->(host) { host.match?(/\A[\w.-]+\.amazonaws\.com\z/) }
+  config.hosts << ->(host) { host.match?(/\A[\d.]+\z/) } # Allow IP addresses
+
   # Skip DNS rebinding protection for the default health check endpoint.
-  # config.host_authorization = { exclude: ->(request) { request.path == "/up" } }
+  config.host_authorization = { exclude: ->(request) { request.path == "/up" || request.path == "/health" } }
 end

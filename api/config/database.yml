@@ -22,3 +22,35 @@ development:
 test:
   <<: *default
   database: <%= ENV.fetch("DATABASE_NAME") { "rewards_test" } %>
+
+production:
+  <<: *default
+  host: <%= ENV.fetch("DATABASE_HOST", "localhost") %>
+  database: <%= ENV.fetch("DATABASE_NAME", "rewards_production") %>
+  username: <%= ENV.fetch("DATABASE_USERNAME", "rewards_admin") %>
+  password: <%= ENV.fetch("DATABASE_PASSWORD", "") %>
+  pool: <%= ENV.fetch("RAILS_MAX_THREADS") { 20 } %>
+
+queue:
+  <<: *default
+  host: <%= ENV.fetch("DATABASE_HOST", "localhost") %>
+  database: <%= ENV.fetch("DATABASE_NAME", "rewards_production") %>
+  username: <%= ENV.fetch("DATABASE_USERNAME", "rewards_admin") %>
+  password: <%= ENV.fetch("DATABASE_PASSWORD", "") %>
+  migrations_paths: db/queue_migrate
+
+cable:
+  <<: *default
+  host: <%= ENV.fetch("DATABASE_HOST", "localhost") %>
+  database: <%= ENV.fetch("DATABASE_NAME", "rewards_production") %>
+  username: <%= ENV.fetch("DATABASE_USERNAME", "rewards_admin") %>
+  password: <%= ENV.fetch("DATABASE_PASSWORD", "") %>
+  migrations_paths: db/cable_migrate
+
+cache:
+  <<: *default
+  host: <%= ENV.fetch("DATABASE_HOST", "localhost") %>
+  database: <%= ENV.fetch("DATABASE_NAME", "rewards_production") %>
+  username: <%= ENV.fetch("DATABASE_USERNAME", "rewards_admin") %>
+  password: <%= ENV.fetch("DATABASE_PASSWORD", "") %>
+  migrations_paths: db/cache_migrate

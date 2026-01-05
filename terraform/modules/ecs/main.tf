@@ -116,6 +116,7 @@ resource "aws_iam_role_policy" "ecs_task_execution_secrets" {
         Resource = [
           var.rails_master_key_arn,
           var.db_password_arn,
+          var.secret_key_base_arn,
         ]
       }
     ]
@@ -231,8 +232,16 @@ resource "aws_ecs_task_definition" "api" {
           value = "true"
         },
         {
-          name  = "DATABASE_URL"
-          value = "postgresql://${var.db_username}:PASSWORD_PLACEHOLDER@${var.db_endpoint}/${var.db_name}"
+          name  = "DATABASE_HOST"
+          value = split(":", var.db_endpoint)[0]
+        },
+        {
+          name  = "DATABASE_NAME"
+          value = var.db_name
+        },
+        {
+          name  = "DATABASE_USERNAME"
+          value = var.db_username
         }
       ]
 
@@ -244,6 +253,10 @@ resource "aws_ecs_task_definition" "api" {
         {
           name      = "DATABASE_PASSWORD"
           valueFrom = var.db_password_arn
+        },
+        {
+          name      = "SECRET_KEY_BASE"
+          valueFrom = var.secret_key_base_arn
         }
       ]
 

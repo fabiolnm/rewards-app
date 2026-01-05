@@ -18,6 +18,24 @@ resource "aws_ssm_parameter" "db_password" {
   }
 }
 
+# Generate random secret key base for Rails
+resource "random_password" "secret_key_base" {
+  length  = 128
+  special = false
+}
+
+# Store secret key base in Parameter Store
+resource "aws_ssm_parameter" "secret_key_base" {
+  name        = "/${var.project_name}/SECRET_KEY_BASE"
+  description = "Rails secret key base for ${var.project_name}"
+  type        = "SecureString"
+  value       = random_password.secret_key_base.result
+
+  tags = {
+    Name = "${var.project_name}-secret-key-base"
+  }
+}
+
 # DB Subnet Group (single-AZ, using private subnet)
 resource "aws_db_subnet_group" "main" {
   name       = "${var.project_name}-db-subnet-group"

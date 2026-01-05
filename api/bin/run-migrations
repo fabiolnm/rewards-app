@@ -1,0 +1,27 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# Run database migrations for production
+# This script is designed to be run as a one-off ECS task before deployment
+
+require_relative "../config/boot"
+require_relative "../config/environment"
+require "rake"
+
+puts "Running database migrations..."
+
+begin
+  # Load Rails rake tasks
+  Rails.application.load_tasks
+
+  # Run database migrations
+  puts "\n==> Running database migrations"
+  Rake::Task["db:migrate"].invoke
+
+  puts "\n✅ All migrations completed successfully!"
+  exit 0
+rescue StandardError => e
+  puts "\n❌ Migration failed: #{e.message}"
+  puts e.backtrace.join("\n")
+  exit 1
+end

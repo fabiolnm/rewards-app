@@ -77,3 +77,8 @@ variable "rails_master_key_arn" {
   description = "ARN of Rails master key in Parameter Store"
   type        = string
 }
+
+variable "secret_key_base_arn" {
+  description = "ARN of Rails secret key base in Parameter Store"
+  type        = string
+}

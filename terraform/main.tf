@@ -66,4 +66,5 @@ module "ecs" {
   db_username        = var.db_username
   db_password_arn    = module.rds.db_password_arn
   rails_master_key_arn = aws_ssm_parameter.rails_master_key.arn
+  secret_key_base_arn = module.rds.secret_key_base_arn
 }

@@ -6,9 +6,19 @@ Complete guide for deploying the Rewards App to AWS ECS Fargate.
 
 1. **AWS Account**: Active AWS account with billing enabled
 2. **AWS SSO**: IAM Identity Center configured with appropriate permissions
-3. **mise**: Tool version manager (installs AWS CLI, Terraform, etc.)
-4. **GitHub CLI**: For automated secrets setup
-5. **Docker**: For local image builds (optional)
+3. **Budget email**: Set environment variable for cost alerts:
+
+   ```bash
+   # Bash/Zsh (temporary, current session only)
+   export TF_VAR_budget_email="your-email@example.com"
+
+   # Fish (persistent, stored in ~/.config/fish/fish_variables)
+   set -Ux TF_VAR_budget_email "your-email@example.com"
+   ```
+
+4. **mise**: Tool version manager (installs AWS CLI, Terraform, etc.)
+5. **GitHub CLI**: For automated secrets setup
+6. **Docker**: For local image builds (optional)
 
 All required tools (AWS CLI, Terraform) are defined in `.mise.toml` and installed automatically.
 
@@ -258,27 +268,23 @@ AWS_PROFILE=admin terraform apply tfplan
 
 Terraform automatically creates a budget alert at $10/month threshold.
 
-Update email in `terraform/variables.tf`:
+Set your email via environment variable:
 
-```hcl
-variable "budget_email" {
-  default = "your-email@example.com"
-}
+```bash
+export TF_VAR_budget_email="your-email@example.com"
 ```
 
 ### Cost Monitoring
 
 1. **AWS Cost Explorer**: Filter by `Project=rewards-app` tag
-2. **Daily Reminder**: GitHub Actions workflow runs daily
-3. **Budget Alerts**: Email notifications at 80%, 100%, and forecasted 100%
+2. **Budget Alerts**: Email notifications at 80%, 100%, and forecasted 100%
 
 ### Expected Costs
 
-**Demo/Testing** (~$59/month):
+**Demo/Testing** (~$27/month):
 
 - ECS Fargate Spot (2 tasks): ~$9/month
 - RDS db.t4g.micro: ~$12/month
-- NAT Gateway: ~$32/month
 - CloudWatch + Data Transfer: ~$5/month
 - S3 + DynamoDB: <$1/month
 
@@ -293,7 +299,7 @@ variable "budget_email" {
 
 ### 1. Bootstrap Infrastructure
 
-Create Terraform state backend:
+Create Terraform state backend and initialize:
 
 ```bash
 cd terraform
@@ -304,41 +310,11 @@ This creates:
 
 - S3 bucket for Terraform state
 - DynamoDB table for state locking
+- Initializes Terraform with backend configuration
 
 **Cost**: <$1/month
 
-### 2. Initialize Terraform
-
-```bash
-ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
-terraform init -backend-config="bucket=rewards-app-tf-state-${ACCOUNT_ID}"
-```
-
-### 3. Configure Variables
-
-Edit `terraform/variables.tf`:
-
-```hcl
-variable "github_org" {
-  default = "your-github-username"
-}
-
-variable "github_repo" {
-  default = "your-repo-name"
-}
-
-variable "budget_email" {
-  default = "your-email@example.com"
-}
-```
-
-### 4. Set Rails Master Key
-
-```bash
-export TF_VAR_rails_master_key=$(cat api/config/master.key)
-```
-
-### 5. Plan and Apply
+### 2. Plan and Apply
 
 ```bash
 terraform plan -out=tfplan
@@ -353,7 +329,7 @@ Review the plan carefully before applying.
 
 **Deployment time**: 10-15 minutes (RDS takes longest)
 
-### 6. Setup GitHub Secrets
+### 3. Setup GitHub Secrets
 
 Automatically configure GitHub repository secrets:
 
@@ -368,7 +344,7 @@ This configures:
 - ECR repository URLs
 - ECS cluster and service names
 
-### 7. Trigger Deployment
+### 4. Trigger Deployment
 
 Push to main branch or manually trigger workflow:
 
@@ -544,14 +520,6 @@ Common issues:
 
 ### Cost Overruns
 
-#### NAT Gateway costs high
-
-Consider:
-
-- Reduce NAT Gateway usage (move RDS to public subnet for testing)
-- Use VPC endpoints for AWS services
-- Destroy when not in use
-
 #### Fargate costs high
 
 - Ensure Fargate Spot is enabled (70% cheaper)
@@ -562,7 +530,6 @@ Consider:
 
 ### Secrets Management
 
-- Rails master key: Parameter Store SecureString
 - Database password: Auto-generated, stored in Parameter Store
 - GitHub Actions: OIDC (no long-lived credentials)
 

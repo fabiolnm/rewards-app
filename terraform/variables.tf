@@ -105,14 +105,6 @@ variable "budget_limit" {
 }
 
 variable "budget_email" {
-  description = "Email address for budget notifications"
+  description = "Email address for budget notifications (set via TF_VAR_budget_email)"
   type        = string
-  default     = "your-email@example.com" # Update this
-}
-
-# Secrets (from environment variables)
-variable "rails_master_key" {
-  description = "Rails master key for encrypted credentials (set via TF_VAR_rails_master_key)"
-  type        = string
-  sensitive   = true
 }

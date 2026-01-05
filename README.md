@@ -3,127 +3,93 @@
 A full-stack rewards redemption web application demonstrating architecture,
 coding quality, testing, and DevOps practices.
 
-## Tech Stack
+**Stack:** React + TypeScript + Ruby on Rails API + PostgreSQL + Docker +
+AWS ECS/Fargate
 
-| Layer | Technology |
-|-------|-----------|
-| Frontend | React, TypeScript (.tsx), Redux Toolkit, Vite |
-| Backend | Ruby on Rails 8 API |
-| Infrastructure | Docker, AWS ECS/Fargate |
-| CI/CD | GitHub Actions |
-| Quality | Mise, Pre-commit, Markdownlint, RuboCop, ESLint, Prettier, Hadolint |
-| Observability | Sentry |
-| Testing | Minitest (Rails), Vitest (React) |
+See [architecture.md](architecture.md) for technical decisions, design
+rationale, and shipping plan.
 
-## Architectural Decisions
-
-### Monorepo Structure
-
-Single repository with `api/` and `web/` directories. Enables atomic commits
-across stack, shared CI/CD, and simpler dependency management for a small team.
-
-```text
-rewards-app/
-├── README.md                     # Architecture + shipping plan
-├── .gitignore
-├── .mise.toml                    # Tool version management
-├── .pre-commit-config.yaml       # Git hooks
-├── .markdownlint.json            # Markdown linting rules
-├── docker-compose.yml
-├── .github/
-│   └── workflows/
-│       ├── ci.yml
-│       └── deploy.yml
-├── api/                          # Rails API
-│   ├── Dockerfile
-│   ├── .rubocop.yml
-│   ├── app/
-│   │   ├── controllers/api/v1/
-│   │   ├── models/
-│   │   ├── services/
-│   │   └── serializers/
-│   └── test/
-└── web/                          # React Frontend
-    ├── Dockerfile
-    ├── nginx.conf
-    ├── .eslintrc.json
-    ├── .prettierrc
-    ├── src/
-    │   ├── components/
-    │   ├── hooks/
-    │   ├── store/
-    │   └── services/
-    └── vite.config.ts
-```
-
-### Backend: Ruby on Rails 8 API
-
-- **API-only mode:** JSON responses, no view layer
-- **Service objects:** Business logic extracted from controllers
-- **Minitest:** Rails default test framework
-- **RuboCop:** Ruby style enforcement with Rails cops
-
-### Frontend: React + TypeScript + Vite
-
-- **TypeScript:** Type safety, compile-time error checking
-- **Vite:** Fast dev server with native ES modules
-- **Redux Toolkit:** Predictable state management
-- **ESLint + Prettier:** Code quality and formatting
-- **Vitest:** Fast unit testing with Vite integration
-
-### Infrastructure: Docker + PostgreSQL
-
-- **Docker Compose:** Consistent dev environment, mirrors production
-- **PostgreSQL:** Production-grade database
-- **Multi-stage builds:** Smaller production images, cached layers
-- **Hadolint:** Dockerfile linting for best practices
-
-### CI/CD: GitHub Actions + AWS
-
-- **GitHub Actions:** CI pipeline with linting and tests
-- **AWS ECS/Fargate:** Serverless container deployment with auto-scaling
-
-### Quality: Mise + Pre-commit + Linters + Tests
-
-- **Mise:** Polyglot tool version manager
-- **Pre-commit hooks:** Catch issues before commit
-- **Markdownlint:** Markdown style enforcement
-- **RuboCop:** Ruby style enforcement (with Rails)
-- **ESLint:** TypeScript/React style enforcement (with React)
-- **Prettier:** Code formatting (with React)
-- **Hadolint:** Dockerfile best practices (with Dockerfiles)
-- **Minitest + Vitest:** Unit and integration tests
-
-### Observability: Sentry
-
-- **Error tracking:** Capture exceptions with context
-- **Source maps:** Readable stack traces for frontend errors
-
-## Setup
+## Quick Start
 
 ### Prerequisites
 
 - Docker and Docker Compose
 - mise (tool version manager)
 
-### Database
+Install mise:
 
 ```bash
-docker-compose up db
+curl https://mise.run | sh
 ```
 
-Connect with psql:
+### Local Development
 
 ```bash
-psql -h localhost -U rewards -d rewards_development
-```
+# Install project tools
+mise install
 
-### Pre-commit Hooks
+# Start all services (database, API, web)
+docker-compose up
 
-```bash
+# Setup pre-commit hooks
 mise run setup
-mise run lint
 ```
+
+## Deployment to AWS
+
+### First-Time Infrastructure Setup
+
+⚠️ Read the [AWS Setup Guide](docs/aws-setup.md) for complete prerequisites
+and follow the [Deployment Steps](docs/aws-setup.md#deployment-steps).
+
+### Continuous Deployment
+
+After infrastructure is set up, deployments are automatic on push to `main`:
+
+```bash
+git push origin main
+```
+
+GitHub Actions will:
+
+1. Build and push Docker images to ECR
+2. Run database migrations
+3. Update ECS Fargate services
+4. Output service URLs
+
+### Cleanup
+
+Destroy all AWS infrastructure:
+
+```bash
+cd terraform
+AWS_PROFILE=admin terraform destroy -auto-approve
+```
+
+**Note**: Requires AdministratorAccess profile. See
+[AWS Setup Guide](docs/aws-setup.md#iam-permissions-for-terraform) for
+profile requirements.
+
+## Documentation
+
+### Getting Started
+
+- **README.md** (this file) - Onboarding and quick start
+- [architecture.md](architecture.md) - Technical architecture and design
+  decisions
+
+### Infrastructure & Deployment
+
+- [docs/aws-setup.md](docs/aws-setup.md) - Complete AWS infrastructure setup
+  guide
+- [terraform/README.md](terraform/README.md) - Terraform modules and usage
+- [docs/deployment.md](docs/deployment.md) - Deployment, monitoring, rollbacks,
+  troubleshooting
+
+### Application Components
+
+- [api/README.md](api/README.md) - Rails API documentation
+- [web/README.md](web/README.md) - React frontend documentation
 
 ## Contributing
 
@@ -135,67 +101,34 @@ Start work on a GitHub issue:
 
 Creates a worktree, fetches issue details, generates a plan, and commits setup.
 
-## Shipping Plan
+## Project Structure
 
-### Phase 1: Foundation
+```text
+rewards-app/
+├── README.md                     # This file - onboarding guide
+├── architecture.md               # Technical architecture and decisions
+├── .mise.toml                    # Tool version management
+├── .pre-commit-config.yaml       # Git hooks
+├── docker-compose.yml            # Local development services
+├── .github/workflows/            # CI/CD pipelines
+├── docs/                         # Documentation
+│   ├── aws-setup.md             # AWS infrastructure setup
+│   └── deployment.md            # Deployment operations
+├── terraform/                    # Infrastructure as Code
+│   ├── README.md
+│   └── modules/
+├── api/                          # Rails API backend
+│   ├── Dockerfile
+│   └── README.md
+└── web/                          # React frontend
+    ├── Dockerfile
+    └── README.md
+```
 
-#### Monorepo Setup
+## Support
 
-- [x] #1 Monorepo Root (mise, pre-commit, markdownlint, README, .gitignore)
+For issues or questions:
 
-#### Infrastructure
-
-- [ ] #3 Docker Compose + Postgres + Hadolint
-
-#### Backend
-
-- [ ] #4 Rails API Skeleton
-- [ ] #5 RuboCop + Minitest pre-commit hooks
-- [ ] #6 Rails API Dockerfile
-
-#### Frontend
-
-- [ ] #7 React + TypeScript Skeleton
-- [ ] #8 ESLint + Prettier + Vitest pre-commit hooks
-- [ ] #9 React Dockerfile
-
-#### DevOps
-
-- [ ] #10 GitHub Actions CI
-- [ ] #11 Deploy to AWS ECS/Fargate (CD)
-
-#### Observability
-
-- [ ] #12 Sentry Error Tracking
-
-### Phase 2: Features (Vertical Slices)
-
-- [ ] #13 Feature - List Available Rewards
-- [ ] #14 Feature - User Points Balance
-- [ ] #15 Feature - Redeem a Reward
-- [ ] #16 Feature - Redemption History
-
-## Design Decisions & Trade-offs
-
-### Quality Gates Integrated from Day One
-
-Linters and formatters are added alongside their respective frameworks rather
-than as a separate phase. This ensures code quality from the first line of
-production code.
-
-### CI/CD Pipeline in Foundation
-
-Deploy pipeline is built in the foundation phase to enable continuous delivery
-from the start. This allows iterative feature deployment and real-world testing
-early.
-
-### Observability Early
-
-Sentry integration in Phase 1 ensures error tracking is available from the
-first deployed code, providing visibility into production issues immediately.
-
-### Pre-commit in Monorepo Root
-
-Markdownlint is configured at the monorepo root level. Framework-specific
-linters (RuboCop, ESLint, Prettier, Hadolint) extend the root pre-commit
-configuration in their respective sub-issues.
+- Check [docs/deployment.md](docs/deployment.md) for troubleshooting
+- Review [architecture.md](architecture.md) for design context
+- Open a GitHub issue for bugs or feature requests

@@ -114,7 +114,6 @@ resource "aws_iam_role_policy" "ecs_task_execution_secrets" {
           "ssm:GetParameter",
         ]
         Resource = [
-          var.rails_master_key_arn,
           var.db_password_arn,
           var.secret_key_base_arn,
         ]
@@ -246,10 +245,6 @@ resource "aws_ecs_task_definition" "api" {
       ]
 
       secrets = [
-        {
-          name      = "RAILS_MASTER_KEY"
-          valueFrom = var.rails_master_key_arn
-        },
         {
           name      = "DATABASE_PASSWORD"
           valueFrom = var.db_password_arn

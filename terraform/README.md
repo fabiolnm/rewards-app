@@ -16,8 +16,13 @@ Infrastructure as Code for deploying the Rewards App to AWS ECS Fargate.
 
 - mise (installs AWS CLI, Terraform automatically via `.mise.toml`)
 - AWS credentials configured (`aws configure`)
+- **AdministratorAccess** permission set for `terraform apply` and
+  `terraform destroy` (creates/deletes IAM resources)
+  - PowerUserAccess sufficient for `terraform init`, `terraform plan`,
+    `terraform output`
+  - See [AWS Setup Guide](../docs/aws-setup.md#iam-permissions-for-terraform)
+    for profile configuration
 - GitHub CLI (for automated secrets setup)
-- Rails master key from `api/config/master.key`
 
 Install tools:
 
@@ -47,26 +52,21 @@ ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
 terraform init -backend-config="bucket=rewards-app-tf-state-${ACCOUNT_ID}"
 ```
 
-### 3. Configure Variables
-
-Update `variables.tf` with your values:
-
-- `github_org`: Your GitHub username/org
-- `github_repo`: Your repository name
-- `budget_email`: Email for cost alerts
-
-### 4. Set Rails Master Key
+### 3. Set Environment Variables
 
 ```bash
-export TF_VAR_rails_master_key="your-master-key-here"
+# Budget alert email
+export TF_VAR_budget_email="your-email@example.com"
 ```
 
-### 5. Deploy Infrastructure
+### 4. Deploy Infrastructure
 
 ```bash
 terraform plan
-terraform apply
+AWS_PROFILE=admin terraform apply
 ```
+
+**Note**: Requires AdministratorAccess to create IAM roles and OIDC providers.
 
 This creates:
 
@@ -77,7 +77,7 @@ This creates:
 - IAM roles and security groups
 - Budget alerts
 
-### 6. Setup GitHub Secrets
+### 5. Setup GitHub Secrets
 
 Automates GitHub repository secret configuration:
 
@@ -123,8 +123,10 @@ See plan documentation for detailed cost breakdown.
 ### Destroy All Infrastructure
 
 ```bash
-terraform destroy -auto-approve
+AWS_PROFILE=admin terraform destroy -auto-approve
 ```
+
+**Note**: Requires AdministratorAccess to delete IAM resources.
 
 ### Delete Backend (Optional)
 
@@ -162,6 +164,35 @@ terraform output <output-name>
 ```
 
 ## Troubleshooting
+
+### IAM Permission Errors
+
+Error creating IAM roles or OIDC providers:
+
+```text
+Error: creating IAM Role: AccessDenied: User is not authorized to perform: iam:CreateRole
+```
+
+Solution:
+
+```bash
+# Verify current profile
+aws sts get-caller-identity
+
+# Test IAM permissions
+aws iam list-roles --max-items 1
+
+# If AccessDenied, switch to admin profile
+AWS_PROFILE=admin terraform apply
+```
+
+Resources requiring IAM permissions:
+
+- `aws_iam_openid_connect_provider.github` - GitHub Actions OIDC authentication
+- `aws_iam_role.ecs_task_execution` - ECS task execution role
+- `aws_iam_role.ecs_task` - ECS application runtime role
+
+See [AWS Setup Guide](../docs/aws-setup.md#iam-permissions-for-terraform) for detailed instructions.
 
 ### Backend Configuration
 

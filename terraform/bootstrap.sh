@@ -69,11 +69,16 @@ fi
 echo ""
 echo "✅ Bootstrap complete!"
 echo ""
+
+# Initialize Terraform with backend configuration
+echo "🔧 Initializing Terraform..."
+terraform init -backend-config="bucket=${BUCKET_NAME}"
+
+echo ""
+echo "✅ Terraform initialized!"
+echo ""
 echo "Next steps:"
-echo "  1. cd terraform"
-echo "  2. terraform init"
-echo "  3. export TF_VAR_rails_master_key=\"your-master-key-here\""
-echo "  4. terraform apply"
+echo "  1. terraform apply"
 echo ""
 echo "Backend configuration:"
 echo "  Bucket: ${BUCKET_NAME}"

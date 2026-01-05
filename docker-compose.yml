@@ -58,6 +58,14 @@ services:
       - ./api/lib:/rails/lib
       - ./api/db:/rails/db
 
+  web:
+    build:
+      context: ./web
+    container_name: rewards-app-web
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+
 volumes:
   postgres_data:
     driver: local

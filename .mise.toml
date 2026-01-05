@@ -5,6 +5,8 @@ hadolint = "2.14.0"
 # breaking aqua backend
 "pipx:pre-commit" = "4.5.1"
 ruby = "4.0.0"
+awscli = "2.22.14"
+terraform = "1.10.4"
 
 [tasks.setup]
 description = "Install dependencies and pre-commit hooks"

@@ -79,6 +79,17 @@ repos:
         files: '^web/.*\.(ts|tsx)$'
         pass_filenames: true
 
+  # Terraform validation
+  - repo: local
+    hooks:
+      - id: terraform-validate
+        name: Terraform Validate
+        entry: bash -c 'cd terraform && terraform validate'
+        language: system
+        files: '^terraform/.*\.tf$'
+        pass_filenames: false
+        stages: [pre-commit, pre-push]
+
   # General file checks
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v5.0.0

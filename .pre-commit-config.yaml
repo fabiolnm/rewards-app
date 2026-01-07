@@ -88,7 +88,6 @@ repos:
         language: system
         files: '^terraform/.*\.tf$'
         pass_filenames: false
-        stages: [pre-commit, pre-push]
 
   # General file checks
   - repo: https://github.com/pre-commit/pre-commit-hooks

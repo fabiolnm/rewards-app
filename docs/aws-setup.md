@@ -346,10 +346,10 @@ This configures:
 
 ### 4. Trigger Deployment
 
-Push to main branch or manually trigger workflow:
+Push to deploy branch or manually trigger workflow:
 
 ```bash
-git push origin main
+git push origin deploy
 ```
 
 Or via GitHub Actions UI: `Actions > Deploy to AWS ECS > Run workflow`

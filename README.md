@@ -44,10 +44,10 @@ and follow the [Deployment Steps](docs/aws-setup.md#deployment-steps).
 
 ### Continuous Deployment
 
-After infrastructure is set up, deployments are automatic on push to `main`:
+After infrastructure is set up, deployments are automatic on push to `deploy`:
 
 ```bash
-git push origin main
+git push origin deploy
 ```
 
 GitHub Actions will:

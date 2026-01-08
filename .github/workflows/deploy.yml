@@ -1,0 +1,316 @@
+name: Deploy to AWS ECS
+
+on:
+  push:
+    branches:
+      - deploy
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy:
+    name: Deploy to ECS Fargate
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.OIDC_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push web image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          cd web
+          docker build \
+            -t ${{ secrets.ECR_WEB_REPOSITORY }}:$IMAGE_TAG \
+            -t ${{ secrets.ECR_WEB_REPOSITORY }}:latest \
+            .
+          docker push ${{ secrets.ECR_WEB_REPOSITORY }}:$IMAGE_TAG
+          docker push ${{ secrets.ECR_WEB_REPOSITORY }}:latest
+
+      - name: Build and push API image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          cd api
+          docker build \
+            -t ${{ secrets.ECR_API_REPOSITORY }}:$IMAGE_TAG \
+            -t ${{ secrets.ECR_API_REPOSITORY }}:latest \
+            .
+          docker push ${{ secrets.ECR_API_REPOSITORY }}:$IMAGE_TAG
+          docker push ${{ secrets.ECR_API_REPOSITORY }}:latest
+
+      - name: Run database migrations
+        run: |
+          echo "Running database migrations as one-off Fargate task..."
+
+          # Get the VPC and subnet configuration from the API service
+          SERVICE_CONFIG=$(aws ecs describe-services \
+            --cluster ${{ secrets.ECS_CLUSTER_NAME }} \
+            --services ${{ secrets.ECS_API_SERVICE }} \
+            --query 'services[0].networkConfiguration.awsvpcConfiguration')
+
+          SUBNETS=$(echo $SERVICE_CONFIG | jq -r '.subnets | join(",")')
+          SECURITY_GROUPS=$(echo $SERVICE_CONFIG | jq -r '.securityGroups | join(",")')
+
+          # Run migrations task
+          TASK_ARN=$(aws ecs run-task \
+            --cluster ${{ secrets.ECS_CLUSTER_NAME }} \
+            --task-definition ${{ secrets.ECS_API_TASK_DEFINITION }} \
+            --launch-type FARGATE \
+            --network-configuration "awsvpcConfiguration={subnets=[$SUBNETS],securityGroups=[$SECURITY_GROUPS],assignPublicIp=ENABLED}" \
+            --overrides '{
+              "containerOverrides": [{
+                "name": "api",
+                "command": ["bundle", "exec", "ruby", "bin/run-migrations"]
+              }]
+            }' \
+            --query 'tasks[0].taskArn' \
+            --output text)
+
+          echo "Migration task ARN: $TASK_ARN"
+
+          # Wait for task to complete
+          echo "Waiting for migrations to complete..."
+          aws ecs wait tasks-stopped \
+            --cluster ${{ secrets.ECS_CLUSTER_NAME }} \
+            --tasks $TASK_ARN
+
+          # Check exit code
+          EXIT_CODE=$(aws ecs describe-tasks \
+            --cluster ${{ secrets.ECS_CLUSTER_NAME }} \
+            --tasks $TASK_ARN \
+            --query 'tasks[0].containers[0].exitCode' \
+            --output text)
+
+          if [ "$EXIT_CODE" != "0" ]; then
+            echo "❌ Migrations failed with exit code: $EXIT_CODE"
+
+            # Fetch CloudWatch logs for debugging
+            echo ""
+            echo "Fetching migration logs from CloudWatch..."
+
+            # Get log configuration from task definition
+            TASK_DEF=$(aws ecs describe-task-definition \
+              --task-definition ${{ secrets.ECS_API_TASK_DEFINITION }} \
+              --query 'taskDefinition.containerDefinitions[0].logConfiguration.options')
+
+            LOG_GROUP=$(echo $TASK_DEF | jq -r '.["awslogs-group"]')
+            LOG_PREFIX=$(echo $TASK_DEF | jq -r '.["awslogs-stream-prefix"]')
+            TASK_ID=$(echo $TASK_ARN | awk -F/ '{print $NF}')
+            LOG_STREAM="${LOG_PREFIX}/api/${TASK_ID}"
+
+            echo "Log group: $LOG_GROUP"
+            echo "Log stream: $LOG_STREAM"
+            echo ""
+
+            aws logs get-log-events \
+              --log-group-name "$LOG_GROUP" \
+              --log-stream-name "$LOG_STREAM" \
+              --limit 100 \
+              --query 'events[*].message' \
+              --output text || echo "Could not fetch logs. Check CloudWatch at: $LOG_GROUP/$LOG_STREAM"
+
+            exit 1
+          fi
+
+          echo "✅ Migrations completed successfully"
+
+      - name: Update web service
+        run: |
+          echo "Updating web service..."
+          aws ecs update-service \
+            --cluster ${{ secrets.ECS_CLUSTER_NAME }} \
+            --service ${{ secrets.ECS_WEB_SERVICE }} \
+            --force-new-deployment
+
+      - name: Update API service
+        run: |
+          echo "Updating API service..."
+          aws ecs update-service \
+            --cluster ${{ secrets.ECS_CLUSTER_NAME }} \
+            --service ${{ secrets.ECS_API_SERVICE }} \
+            --force-new-deployment
+
+      - name: Wait for services to stabilize
+        timeout-minutes: 15
+        run: |
+          echo "Checking web service deployment status..."
+          aws ecs describe-services \
+            --cluster ${{ secrets.ECS_CLUSTER_NAME }} \
+            --services ${{ secrets.ECS_WEB_SERVICE }} \
+            --query 'services[0].{runningCount:runningCount,desiredCount:desiredCount,deployments:deployments[*].{status:status,desiredCount:desiredCount,runningCount:runningCount,rolloutState:rolloutState},events:events[:3]}' \
+            --output json
+
+          echo "Waiting for web service to stabilize..."
+          if ! aws ecs wait services-stable \
+            --cluster ${{ secrets.ECS_CLUSTER_NAME }} \
+            --services ${{ secrets.ECS_WEB_SERVICE }}; then
+
+            echo "❌ Web service failed to stabilize"
+            echo ""
+            echo "Fetching recent task logs from CloudWatch..."
+
+            # Get the most recent task ARN
+            TASK_ARN=$(aws ecs list-tasks \
+              --cluster ${{ secrets.ECS_CLUSTER_NAME }} \
+              --service-name ${{ secrets.ECS_WEB_SERVICE }} \
+              --query 'taskArns[0]' \
+              --output text)
+
+            if [ "$TASK_ARN" != "None" ] && [ -n "$TASK_ARN" ]; then
+              TASK_ID=$(echo $TASK_ARN | awk -F/ '{print $NF}')
+
+              # Get log configuration from task definition
+              TASK_DEF=$(aws ecs describe-services \
+                --cluster ${{ secrets.ECS_CLUSTER_NAME }} \
+                --services ${{ secrets.ECS_WEB_SERVICE }} \
+                --query 'services[0].taskDefinition' \
+                --output text)
+
+              LOG_CONFIG=$(aws ecs describe-task-definition \
+                --task-definition $TASK_DEF \
+                --query 'taskDefinition.containerDefinitions[0].logConfiguration.options')
+
+              LOG_GROUP=$(echo $LOG_CONFIG | jq -r '.["awslogs-group"]')
+              LOG_PREFIX=$(echo $LOG_CONFIG | jq -r '.["awslogs-stream-prefix"]')
+              LOG_STREAM="${LOG_PREFIX}/web/${TASK_ID}"
+
+              echo "Log stream: $LOG_GROUP/$LOG_STREAM"
+              echo ""
+
+              aws logs get-log-events \
+                --log-group-name "$LOG_GROUP" \
+                --log-stream-name "$LOG_STREAM" \
+                --limit 100 \
+                --query 'events[*].message' \
+                --output text || echo "Could not fetch logs. Check CloudWatch at: $LOG_GROUP/$LOG_STREAM"
+            fi
+
+            exit 1
+          fi
+
+          echo "Checking API service deployment status..."
+          aws ecs describe-services \
+            --cluster ${{ secrets.ECS_CLUSTER_NAME }} \
+            --services ${{ secrets.ECS_API_SERVICE }} \
+            --query 'services[0].{runningCount:runningCount,desiredCount:desiredCount,deployments:deployments[*].{status:status,desiredCount:desiredCount,runningCount:runningCount,rolloutState:rolloutState},events:events[:3]}' \
+            --output json
+
+          echo "Waiting for API service to stabilize..."
+          if ! aws ecs wait services-stable \
+            --cluster ${{ secrets.ECS_CLUSTER_NAME }} \
+            --services ${{ secrets.ECS_API_SERVICE }}; then
+
+            echo "❌ API service failed to stabilize"
+            echo ""
+            echo "Fetching recent task logs from CloudWatch..."
+
+            # Get the most recent task ARN
+            TASK_ARN=$(aws ecs list-tasks \
+              --cluster ${{ secrets.ECS_CLUSTER_NAME }} \
+              --service-name ${{ secrets.ECS_API_SERVICE }} \
+              --query 'taskArns[0]' \
+              --output text)
+
+            if [ "$TASK_ARN" != "None" ] && [ -n "$TASK_ARN" ]; then
+              TASK_ID=$(echo $TASK_ARN | awk -F/ '{print $NF}')
+
+              # Get log configuration from task definition
+              TASK_DEF=$(aws ecs describe-services \
+                --cluster ${{ secrets.ECS_CLUSTER_NAME }} \
+                --services ${{ secrets.ECS_API_SERVICE }} \
+                --query 'services[0].taskDefinition' \
+                --output text)
+
+              LOG_CONFIG=$(aws ecs describe-task-definition \
+                --task-definition $TASK_DEF \
+                --query 'taskDefinition.containerDefinitions[0].logConfiguration.options')
+
+              LOG_GROUP=$(echo $LOG_CONFIG | jq -r '.["awslogs-group"]')
+              LOG_PREFIX=$(echo $LOG_CONFIG | jq -r '.["awslogs-stream-prefix"]')
+              LOG_STREAM="${LOG_PREFIX}/api/${TASK_ID}"
+
+              echo "Log stream: $LOG_GROUP/$LOG_STREAM"
+              echo ""
+
+              aws logs get-log-events \
+                --log-group-name "$LOG_GROUP" \
+                --log-stream-name "$LOG_STREAM" \
+                --limit 100 \
+                --query 'events[*].message' \
+                --output text || echo "Could not fetch logs. Check CloudWatch at: $LOG_GROUP/$LOG_STREAM"
+            fi
+
+            exit 1
+          fi
+
+          echo "✅ Deployment complete!"
+
+      - name: Get service URLs
+        run: |
+          echo "Fetching service public IPs..."
+
+          # Get web task public IP
+          WEB_TASK_ARN=$(aws ecs list-tasks \
+            --cluster ${{ secrets.ECS_CLUSTER_NAME }} \
+            --service-name ${{ secrets.ECS_WEB_SERVICE }} \
+            --desired-status RUNNING \
+            --query 'taskArns[0]' \
+            --output text)
+
+          if [ "$WEB_TASK_ARN" != "None" ]; then
+            WEB_ENI=$(aws ecs describe-tasks \
+              --cluster ${{ secrets.ECS_CLUSTER_NAME }} \
+              --tasks $WEB_TASK_ARN \
+              --query 'tasks[0].attachments[0].details[?name==`networkInterfaceId`].value' \
+              --output text)
+
+            WEB_IP=$(aws ec2 describe-network-interfaces \
+              --network-interface-ids $WEB_ENI \
+              --query 'NetworkInterfaces[0].Association.PublicIp' \
+              --output text)
+
+            echo "🌐 Web URL: http://$WEB_IP"
+          fi
+
+          # Get API task public IP
+          API_TASK_ARN=$(aws ecs list-tasks \
+            --cluster ${{ secrets.ECS_CLUSTER_NAME }} \
+            --service-name ${{ secrets.ECS_API_SERVICE }} \
+            --desired-status RUNNING \
+            --query 'taskArns[0]' \
+            --output text)
+
+          if [ "$API_TASK_ARN" != "None" ]; then
+            API_ENI=$(aws ecs describe-tasks \
+              --cluster ${{ secrets.ECS_CLUSTER_NAME }} \
+              --tasks $API_TASK_ARN \
+              --query 'tasks[0].attachments[0].details[?name==`networkInterfaceId`].value' \
+              --output text)
+
+            API_IP=$(aws ec2 describe-network-interfaces \
+              --network-interface-ids $API_ENI \
+              --query 'NetworkInterfaces[0].Association.PublicIp' \
+              --output text)
+
+            echo "🚀 API URL: http://$API_IP:3000"
+          fi
+
+          echo ""
+          echo "Note: IPs may change on service restarts. Use ECS console for current IPs."

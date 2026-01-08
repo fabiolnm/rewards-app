@@ -41,12 +41,12 @@ jobs:
         env:
           # Skip hooks that run as separate steps or require specific setup
           # Skipped: check-branch-name, validate-commit-author (run above),
-          #          rubocop, web-eslint (run as separate CI jobs)
+          #          rubocop, web-eslint, web-vitest, terraform-validate (run as separate CI jobs)
           # Skipped prettier in pre-commit stage (runs in manual stage with --check)
           # Runs: markdownlint, hadolint-docker, trailing-whitespace,
           #       end-of-file-fixer, check-yaml, check-added-large-files,
           #       check-merge-conflict, prettier (check-only)
-          SKIP: check-branch-name,validate-commit-author,rubocop,web-eslint,prettier
+          SKIP: check-branch-name,validate-commit-author,rubocop,web-eslint,prettier,web-vitest,terraform-validate
 
   web-lint:
     name: Web Lint (ESLint)
@@ -107,3 +107,25 @@ jobs:
 
       - name: Run Vitest tests
         run: bun run test -- --run
+
+  terraform_validate:
+    name: Terraform Validate
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: terraform
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "~> 1.0"
+
+      - name: Terraform Init
+        run: terraform init -backend=false
+
+      - name: Terraform Validate
+        run: terraform validate

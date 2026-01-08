@@ -1,10 +1,12 @@
 [tools]
+awscli = "2.22.14"
 bun = "1.1.43"
 hadolint = "2.14.0"
 # Using pipx backend because pre-commit 4.5.0+ stopped publishing sha256sum files,
 # breaking aqua backend
 "pipx:pre-commit" = "4.5.1"
 ruby = "4.0.0"
+terraform = "1.10.4"
 
 [tasks.setup]
 description = "Install dependencies and pre-commit hooks"

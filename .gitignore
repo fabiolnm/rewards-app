@@ -1,4 +1,17 @@
+# Node.js
+node_modules/
+
 # Docker
 docker-compose.override.yml
 .docker/
 *.dockerignore.bak
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+*.tfplan
+tfplan
+crash.log
+crash.*.log

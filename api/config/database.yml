@@ -1,0 +1,24 @@
+# PostgreSQL database configuration for Rails API
+#
+# Connects to PostgreSQL instance from Docker Compose (see docker-compose.yml)
+# Default credentials match the Docker Compose service configuration
+#
+# Override settings using environment variables:
+#   DATABASE_USER=myuser DATABASE_PASSWORD=mypass rails server
+#
+default: &default
+  adapter: postgresql
+  encoding: unicode
+  pool: <%= ENV.fetch("RAILS_MAX_THREADS") { 5 } %>
+  username: <%= ENV.fetch("DATABASE_USER") { "rewards" } %>
+  password: <%= ENV.fetch("DATABASE_PASSWORD") { "" } %>
+  host: <%= ENV.fetch("DATABASE_HOST") { "localhost" } %>
+  port: <%= ENV.fetch("DATABASE_PORT") { 5432 } %>
+
+development:
+  <<: *default
+  database: <%= ENV.fetch("DATABASE_NAME") { "rewards_development" } %>
+
+test:
+  <<: *default
+  database: <%= ENV.fetch("DATABASE_NAME") { "rewards_test" } %>

@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Get current commit author
+author_name=$(git config user.name)
+author_email=$(git config user.email)
+
+# Name: 2+ words check
+word_count=$(echo "$author_name" | wc -w | tr -d ' ')
+if [[ "$word_count" -lt 2 ]]; then
+    echo "ERROR: Author name must contain first and last name (at least 2 words)" >&2
+    echo "Current: $author_name" >&2
+    exit 1
+fi
+
+# Name: pattern check (letters, spaces, hyphens, apostrophes)
+name_pattern='^[[:alpha:]][[:alpha:][:space:].'\''()-]+[[:alpha:]]$'
+if ! echo "$author_name" | grep -Eq "$name_pattern"; then
+    echo "ERROR: Invalid author name format" >&2
+    echo "Current: $author_name" >&2
+    exit 1
+fi
+
+# Email: format check
+email_pattern='^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+if ! echo "$author_email" | grep -Eq "$email_pattern"; then
+    echo "ERROR: Invalid author email format" >&2
+    echo "Current: $author_email" >&2
+    exit 1
+fi
+
+echo "✓ Commit author is valid"

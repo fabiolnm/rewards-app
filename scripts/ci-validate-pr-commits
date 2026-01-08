@@ -1,0 +1,58 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+base_ref="${BASE_REF:-main}"
+head_ref="${HEAD_REF:-HEAD}"
+
+echo "Validating commits from $base_ref to $head_ref..."
+
+commits=$(git rev-list "$base_ref".."$head_ref")
+
+if [[ -z "$commits" ]]; then
+    echo "No commits to validate"
+    exit 0
+fi
+
+failed=0
+
+while IFS= read -r commit_sha; do
+    author_name=$(git log -1 --format='%an' "$commit_sha")
+    author_email=$(git log -1 --format='%ae' "$commit_sha")
+
+    echo "Checking commit $commit_sha"
+    echo "  Author: $author_name <$author_email>"
+
+    # Name: 2+ words
+    word_count=$(echo "$author_name" | wc -w | tr -d ' ')
+    if [[ "$word_count" -lt 2 ]]; then
+        echo "  ✗ ERROR: Author name must contain at least 2 words" >&2
+        failed=1
+        continue
+    fi
+
+    # Name: pattern
+    name_pattern='^[[:alpha:]][[:alpha:][:space:].'\''()-]+[[:alpha:]]$'
+    if ! echo "$author_name" | grep -Eq "$name_pattern"; then
+        echo "  ✗ ERROR: Invalid author name format" >&2
+        failed=1
+        continue
+    fi
+
+    # Email: format
+    email_pattern='^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    if ! echo "$author_email" | grep -Eq "$email_pattern"; then
+        echo "  ✗ ERROR: Invalid author email format" >&2
+        failed=1
+        continue
+    fi
+
+    echo "  ✓ Valid"
+done <<< "$commits"
+
+if [[ "$failed" -eq 1 ]]; then
+    echo "" >&2
+    echo "ERROR: One or more commits have invalid author information" >&2
+    exit 1
+fi
+
+echo "✓ All commit authors are valid"

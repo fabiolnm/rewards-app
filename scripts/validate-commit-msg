@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Read commit message
+commit_msg_file="${1:-}"
+if [[ -z "$commit_msg_file" ]]; then
+    echo "ERROR: No commit message file provided" >&2
+    exit 1
+fi
+
+commit_msg=$(cat "$commit_msg_file")
+
+# Pattern: type(#issue): message
+# Supports any word characters for type, must have #number, and any message
+pattern='^[a-zA-Z][a-zA-Z0-9_-]*\(#[0-9]+\): .+$'
+
+# Strip fixup!/squash! prefix if present for validation
+msg_to_validate="$commit_msg"
+if [[ "$commit_msg" =~ ^(fixup|squash)!\ (.+)$ ]]; then
+    msg_to_validate="${BASH_REMATCH[2]}"
+fi
+
+if ! echo "$msg_to_validate" | grep -Eq "$pattern"; then
+    echo "ERROR: Invalid commit message format" >&2
+    echo "" >&2
+    echo "Expected format: type(#issue): message" >&2
+    echo "  - type: word characters (letters, numbers, _, -)" >&2
+    echo "  - issue: number" >&2
+    echo "  - message: any text" >&2
+    echo "" >&2
+    echo "Examples:" >&2
+    echo "  - feat(#1): Add new feature" >&2
+    echo "  - chore(#42): Update dependencies" >&2
+    echo "  - bug-fix(#123): Resolve crash on startup" >&2
+    echo "  - fixup! feat(#1): Add new feature" >&2
+    echo "" >&2
+    echo "Your message: $commit_msg" >&2
+    exit 1
+fi
+
+echo "✓ Commit message format is valid"

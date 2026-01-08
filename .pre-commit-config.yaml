@@ -1,0 +1,49 @@
+repos:
+  # Commit message validation
+  - repo: local
+    hooks:
+      - id: validate-commit-msg
+        name: Validate commit message format
+        entry: scripts/validate-commit-msg
+        language: script
+        stages: [commit-msg]
+
+  # Branch name validation
+  - repo: local
+    hooks:
+      - id: check-branch-name
+        name: Check branch name format
+        entry: scripts/check-branch-name
+        language: script
+        stages: [pre-commit]
+        pass_filenames: false
+        always_run: true
+
+  # Commit author validation
+  - repo: local
+    hooks:
+      - id: validate-commit-author
+        name: Validate commit author
+        entry: scripts/validate-commit-author
+        language: script
+        stages: [pre-commit]
+        pass_filenames: false
+        always_run: true
+
+  # Markdown linting
+  - repo: https://github.com/igorshubovych/markdownlint-cli
+    rev: v0.37.0
+    hooks:
+      - id: markdownlint
+        args: ['--config', '.markdownlint.json']
+
+  # General file checks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-added-large-files
+        args: ['--maxkb=1000']
+      - id: check-merge-conflict

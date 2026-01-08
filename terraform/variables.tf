@@ -108,3 +108,17 @@ variable "budget_email" {
   description = "Email address for budget notifications (set via TF_VAR_budget_email)"
   type        = string
 }
+
+# Sentry Configuration
+variable "sentry_dsn" {
+  description = "Sentry DSN for API error tracking (set via TF_VAR_sentry_dsn)"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "git_sha" {
+  description = "Git commit SHA for release tracking (set via TF_VAR_git_sha in CI/CD)"
+  type        = string
+  default     = ""
+}

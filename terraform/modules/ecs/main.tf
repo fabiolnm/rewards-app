@@ -113,10 +113,11 @@ resource "aws_iam_role_policy" "ecs_task_execution_secrets" {
           "ssm:GetParameters",
           "ssm:GetParameter",
         ]
-        Resource = [
+        Resource = compact([
           var.db_password_arn,
           var.secret_key_base_arn,
-        ]
+          var.sentry_dsn != "" ? aws_ssm_parameter.sentry_dsn[0].arn : "",
+        ])
       }
     ]
   })
@@ -241,10 +242,14 @@ resource "aws_ecs_task_definition" "api" {
         {
           name  = "DATABASE_USERNAME"
           value = var.db_username
+        },
+        {
+          name  = "GIT_SHA"
+          value = var.git_sha
         }
       ]
 
-      secrets = [
+      secrets = concat([
         {
           name      = "DATABASE_PASSWORD"
           valueFrom = var.db_password_arn
@@ -253,7 +258,10 @@ resource "aws_ecs_task_definition" "api" {
           name      = "SECRET_KEY_BASE"
           valueFrom = var.secret_key_base_arn
         }
-      ]
+        ], var.sentry_dsn != "" ? [{
+          name      = "SENTRY_DSN"
+          valueFrom = aws_ssm_parameter.sentry_dsn[0].arn
+      }] : [])
 
       logConfiguration = {
         logDriver = "awslogs"

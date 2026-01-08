@@ -6,6 +6,12 @@ FROM oven/bun:1.3.5-slim AS build
 
 WORKDIR /app
 
+# Sentry build arguments (non-sensitive)
+ARG VITE_SENTRY_DSN
+ARG VITE_GIT_SHA
+ARG SENTRY_ORG
+ARG SENTRY_PROJECT
+
 # Copy package files
 COPY package.json bun.lockb ./
 
@@ -15,8 +21,16 @@ RUN bun install --frozen-lockfile
 # Copy source code
 COPY . .
 
-# Build application
-RUN bun run build
+# Build application with Sentry configuration
+# SENTRY_AUTH_TOKEN passed via --mount=type=secret to avoid exposure in image layers
+# VITE_* vars are public (embedded in JS), others are build-time only
+ENV VITE_SENTRY_DSN=$VITE_SENTRY_DSN
+ENV VITE_GIT_SHA=$VITE_GIT_SHA
+RUN --mount=type=secret,id=SENTRY_AUTH_TOKEN \
+    SENTRY_AUTH_TOKEN=$(cat /run/secrets/SENTRY_AUTH_TOKEN 2>/dev/null) \
+    SENTRY_ORG=$SENTRY_ORG \
+    SENTRY_PROJECT=$SENTRY_PROJECT \
+    bun run build
 
 # Production stage
 FROM nginx:1.27.5-alpine

@@ -2,7 +2,17 @@
 set -euo pipefail
 
 # Setup GitHub repository secrets from Terraform outputs
-# Requires: gh CLI authenticated
+# Requires: gh CLI authenticated, AWS credentials
+# Usage: AWS_PROFILE=admin ./setup-github-secrets.sh
+
+# Load .env from repo root if it exists (auto-export variables)
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+if [ -f "${REPO_ROOT}/.env" ]; then
+  set -a
+  # shellcheck source=/dev/null
+  source "${REPO_ROOT}/.env"
+  set +a
+fi
 
 echo "🔐 Setting up GitHub repository secrets..."
 
@@ -60,9 +70,59 @@ gh secret set ECS_WEB_TASK_DEFINITION --body "${ECS_WEB_TASK_DEFINITION}"
 gh secret set ECS_API_TASK_DEFINITION --body "${ECS_API_TASK_DEFINITION}"
 
 echo ""
+echo "✅ AWS secrets configured successfully!"
+echo ""
+
+# Sentry configuration (optional)
+# Can be set via environment variables or entered interactively
+echo "🔍 Sentry Configuration (optional - press Enter to skip)"
+echo "   Tip: Set SENTRY_* env vars to skip prompts"
+echo ""
+
+if [ -z "${SENTRY_DSN_API:-}" ]; then
+  read -rp "SENTRY_DSN_API (backend API): " SENTRY_DSN_API
+fi
+if [ -n "${SENTRY_DSN_API:-}" ]; then
+  gh secret set SENTRY_DSN_API --body "${SENTRY_DSN_API}"
+  echo "  ✓ SENTRY_DSN_API set"
+fi
+
+if [ -z "${SENTRY_DSN_WEB:-}" ]; then
+  read -rp "SENTRY_DSN_WEB (frontend): " SENTRY_DSN_WEB
+fi
+if [ -n "${SENTRY_DSN_WEB:-}" ]; then
+  gh secret set SENTRY_DSN_WEB --body "${SENTRY_DSN_WEB}"
+  echo "  ✓ SENTRY_DSN_WEB set"
+fi
+
+if [ -z "${SENTRY_AUTH_TOKEN:-}" ]; then
+  read -rp "SENTRY_AUTH_TOKEN: " SENTRY_AUTH_TOKEN
+fi
+if [ -n "${SENTRY_AUTH_TOKEN:-}" ]; then
+  gh secret set SENTRY_AUTH_TOKEN --body "${SENTRY_AUTH_TOKEN}"
+  echo "  ✓ SENTRY_AUTH_TOKEN set"
+fi
+
+if [ -z "${SENTRY_ORG:-}" ]; then
+  read -rp "SENTRY_ORG: " SENTRY_ORG
+fi
+if [ -n "${SENTRY_ORG:-}" ]; then
+  gh secret set SENTRY_ORG --body "${SENTRY_ORG}"
+  echo "  ✓ SENTRY_ORG set"
+fi
+
+if [ -z "${SENTRY_PROJECT_WEB:-}" ]; then
+  read -rp "SENTRY_PROJECT_WEB: " SENTRY_PROJECT_WEB
+fi
+if [ -n "${SENTRY_PROJECT_WEB:-}" ]; then
+  gh secret set SENTRY_PROJECT_WEB --body "${SENTRY_PROJECT_WEB}"
+  echo "  ✓ SENTRY_PROJECT_WEB set"
+fi
+
+echo ""
 echo "✅ GitHub secrets configured successfully!"
 echo ""
-echo "Secrets set:"
+echo "AWS secrets set:"
 echo "  - AWS_REGION: ${AWS_REGION}"
 echo "  - AWS_ACCOUNT_ID: ${AWS_ACCOUNT_ID}"
 echo "  - OIDC_ROLE_ARN"
@@ -73,3 +133,10 @@ echo "  - ECS_WEB_SERVICE"
 echo "  - ECS_API_SERVICE"
 echo "  - ECS_WEB_TASK_DEFINITION"
 echo "  - ECS_API_TASK_DEFINITION"
+echo ""
+echo "Sentry secrets (if provided):"
+echo "  - SENTRY_DSN_API"
+echo "  - SENTRY_DSN_WEB"
+echo "  - SENTRY_AUTH_TOKEN"
+echo "  - SENTRY_ORG"
+echo "  - SENTRY_PROJECT_WEB"

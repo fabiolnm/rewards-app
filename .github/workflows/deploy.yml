@@ -33,12 +33,20 @@ jobs:
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           IMAGE_TAG: ${{ github.sha }}
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
         run: |
           cd web
+          echo "$SENTRY_AUTH_TOKEN" > /tmp/sentry_auth_token
           docker build \
+            --build-arg VITE_SENTRY_DSN=${{ secrets.SENTRY_DSN_WEB }} \
+            --build-arg VITE_GIT_SHA=${{ github.sha }} \
+            --build-arg SENTRY_ORG=${{ secrets.SENTRY_ORG }} \
+            --build-arg SENTRY_PROJECT=${{ secrets.SENTRY_PROJECT_WEB }} \
+            --secret id=SENTRY_AUTH_TOKEN,src=/tmp/sentry_auth_token \
             -t ${{ secrets.ECR_WEB_REPOSITORY }}:$IMAGE_TAG \
             -t ${{ secrets.ECR_WEB_REPOSITORY }}:latest \
             .
+          rm /tmp/sentry_auth_token
           docker push ${{ secrets.ECR_WEB_REPOSITORY }}:$IMAGE_TAG
           docker push ${{ secrets.ECR_WEB_REPOSITORY }}:latest
 
@@ -55,6 +63,34 @@ jobs:
           docker push ${{ secrets.ECR_API_REPOSITORY }}:$IMAGE_TAG
           docker push ${{ secrets.ECR_API_REPOSITORY }}:latest
 
+      - name: Update API task definition with GIT_SHA
+        id: update-task-def
+        run: |
+          # Get current task definition
+          TASK_DEF=$(aws ecs describe-task-definition \
+            --task-definition ${{ secrets.ECS_API_TASK_DEFINITION }} \
+            --query 'taskDefinition')
+
+          # Update GIT_SHA in environment variables
+          UPDATED_TASK_DEF=$(echo "$TASK_DEF" | jq --arg sha "${{ github.sha }}" '
+            .containerDefinitions[0].environment = [
+              .containerDefinitions[0].environment[] |
+              if .name == "GIT_SHA" then .value = $sha else . end
+            ]
+          ')
+
+          # Remove fields that can't be included in register-task-definition
+          REGISTER_TASK_DEF=$(echo "$UPDATED_TASK_DEF" | jq 'del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy)')
+
+          # Register new task definition revision
+          NEW_TASK_DEF_ARN=$(aws ecs register-task-definition \
+            --cli-input-json "$REGISTER_TASK_DEF" \
+            --query 'taskDefinition.taskDefinitionArn' \
+            --output text)
+
+          echo "task_definition_arn=$NEW_TASK_DEF_ARN" >> $GITHUB_OUTPUT
+          echo "Registered new task definition: $NEW_TASK_DEF_ARN"
+
       - name: Run database migrations
         run: |
           echo "Running database migrations as one-off Fargate task..."
@@ -68,10 +104,10 @@ jobs:
           SUBNETS=$(echo $SERVICE_CONFIG | jq -r '.subnets | join(",")')
           SECURITY_GROUPS=$(echo $SERVICE_CONFIG | jq -r '.securityGroups | join(",")')
 
-          # Run migrations task
+          # Run migrations task using the updated task definition
           TASK_ARN=$(aws ecs run-task \
             --cluster ${{ secrets.ECS_CLUSTER_NAME }} \
-            --task-definition ${{ secrets.ECS_API_TASK_DEFINITION }} \
+            --task-definition ${{ steps.update-task-def.outputs.task_definition_arn }} \
             --launch-type FARGATE \
             --network-configuration "awsvpcConfiguration={subnets=[$SUBNETS],securityGroups=[$SECURITY_GROUPS],assignPublicIp=ENABLED}" \
             --overrides '{
@@ -107,7 +143,7 @@ jobs:
 
             # Get log configuration from task definition
             TASK_DEF=$(aws ecs describe-task-definition \
-              --task-definition ${{ secrets.ECS_API_TASK_DEFINITION }} \
+              --task-definition ${{ steps.update-task-def.outputs.task_definition_arn }} \
               --query 'taskDefinition.containerDefinitions[0].logConfiguration.options')
 
             LOG_GROUP=$(echo $TASK_DEF | jq -r '.["awslogs-group"]')
@@ -141,10 +177,11 @@ jobs:
 
       - name: Update API service
         run: |
-          echo "Updating API service..."
+          echo "Updating API service with new task definition..."
           aws ecs update-service \
             --cluster ${{ secrets.ECS_CLUSTER_NAME }} \
             --service ${{ secrets.ECS_API_SERVICE }} \
+            --task-definition ${{ steps.update-task-def.outputs.task_definition_arn }} \
             --force-new-deployment
 
       - name: Wait for services to stabilize

@@ -20,3 +20,11 @@ run = '''
 [tasks.lint]
 description = "Run all pre-commit hooks"
 run = "pre-commit run --all-files"
+
+[tasks."tf:init"]
+description = "Initialize Terraform with S3 backend"
+dir = "terraform"
+run = '''
+  BUCKET="rewards-app-tf-state-$(aws sts get-caller-identity --query Account --output text)"
+  terraform init -backend-config="bucket=$BUCKET"
+'''

@@ -274,3 +274,23 @@ Production (after deploy):
 - [ ] Errors tagged with `production` environment
 - [ ] Errors tagged with git SHA release
 - [ ] Frontend stack trace shows `.tsx` files (source maps working)
+
+## Lessons Learned (Post-Implementation)
+
+### Technical Insights
+
+1. **Git fallback safety in production:** The original Sentry initializer used
+   `rescue Errno::ENOENT` which doesn't catch all git command failures. Changed
+   to use `Rails.env.local?` guard to only run git in development where it's
+   available.
+
+2. **Source map cleanup:** Added `filesToDeleteAfterUpload` to Sentry Vite
+   plugin to remove `.map` files from production builds after uploading to
+   Sentry, preventing source code exposure.
+
+3. **Docker build-time secrets:** Changed `SENTRY_ORG` and `SENTRY_PROJECT`
+   from `ENV` to inline variables in `RUN` command to avoid exposing them in
+   image metadata.
+
+4. **Shell script variable export:** Added `set -a` / `set +a` around `.env`
+   sourcing in setup script for proper variable export.

@@ -11,6 +11,20 @@ This can be:
 - A PR number (e.g., `123`)
 - A GitHub PR URL (e.g., `https://github.com/owner/repo/pull/123`)
 
+## Review Process
+
+This command follows these steps:
+
+1. **Fetch PR Information** - Get PR details and diff from GitHub
+2. **Perform Code Review** - Analyze code for quality, security, performance,
+   and best practices
+3. **Present Review Comments** - Show all findings to user
+4. **Filter Comments** - Let user select which comments to include
+5. **Display Final Review** - Show the filtered review
+6. **Post Review to PR** - Add review as comment on GitHub
+7. **Ask About Addressing Items** - Offer to implement fixes
+8. **Suggest Commit History Review** - Recommend running `/review-commit-history`
+
 ## Step 1: Fetch PR Information
 
 Extract the PR number from the arguments:
@@ -136,3 +150,25 @@ If the user wants to address items:
 - Create a plan using the TodoWrite tool
 - Break down the work by file and issue type
 - Implement the fixes as requested
+
+## Step 8: Suggest Commit History Review
+
+After completing the code review, suggest analyzing the commit history:
+
+```markdown
+Code review complete!
+
+To analyze the commit history and extract lessons learned, you can run:
+
+/review-commit-history <PR_NUMBER>
+
+This will:
+- Check for squashable commits (multiple fixes, debugging commits)
+- Compare commits against the implementation plan
+- Extract technical challenges and process improvements
+- Update the plan file with lessons learned
+- Optionally suggest rebase strategy using fixup workflow
+```
+
+The user can then invoke `/review-commit-history` manually if they want to
+analyze the commit history.

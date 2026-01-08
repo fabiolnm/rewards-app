@@ -1,3 +1,9 @@
+import { ErrorBoundary } from "./components/ErrorBoundary";
+
 export default function App() {
-  return <h1>Rewards App</h1>;
+  return (
+    <ErrorBoundary>
+      <h1>Rewards App</h1>
+    </ErrorBoundary>
+  );
 }

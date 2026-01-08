@@ -100,6 +100,32 @@ jobs:
 
           if [ "$EXIT_CODE" != "0" ]; then
             echo "❌ Migrations failed with exit code: $EXIT_CODE"
+
+            # Fetch CloudWatch logs for debugging
+            echo ""
+            echo "Fetching migration logs from CloudWatch..."
+
+            # Get log configuration from task definition
+            TASK_DEF=$(aws ecs describe-task-definition \
+              --task-definition ${{ secrets.ECS_API_TASK_DEFINITION }} \
+              --query 'taskDefinition.containerDefinitions[0].logConfiguration.options')
+
+            LOG_GROUP=$(echo $TASK_DEF | jq -r '.["awslogs-group"]')
+            LOG_PREFIX=$(echo $TASK_DEF | jq -r '.["awslogs-stream-prefix"]')
+            TASK_ID=$(echo $TASK_ARN | awk -F/ '{print $NF}')
+            LOG_STREAM="${LOG_PREFIX}/api/${TASK_ID}"
+
+            echo "Log group: $LOG_GROUP"
+            echo "Log stream: $LOG_STREAM"
+            echo ""
+
+            aws logs get-log-events \
+              --log-group-name "$LOG_GROUP" \
+              --log-stream-name "$LOG_STREAM" \
+              --limit 100 \
+              --query 'events[*].message' \
+              --output text || echo "Could not fetch logs. Check CloudWatch at: $LOG_GROUP/$LOG_STREAM"
+
             exit 1
           fi
 
@@ -122,16 +148,117 @@ jobs:
             --force-new-deployment
 
       - name: Wait for services to stabilize
+        timeout-minutes: 15
         run: |
-          echo "Waiting for web service to stabilize..."
-          aws ecs wait services-stable \
+          echo "Checking web service deployment status..."
+          aws ecs describe-services \
             --cluster ${{ secrets.ECS_CLUSTER_NAME }} \
-            --services ${{ secrets.ECS_WEB_SERVICE }}
+            --services ${{ secrets.ECS_WEB_SERVICE }} \
+            --query 'services[0].{runningCount:runningCount,desiredCount:desiredCount,deployments:deployments[*].{status:status,desiredCount:desiredCount,runningCount:runningCount,rolloutState:rolloutState},events:events[:3]}' \
+            --output json
+
+          echo "Waiting for web service to stabilize..."
+          if ! aws ecs wait services-stable \
+            --cluster ${{ secrets.ECS_CLUSTER_NAME }} \
+            --services ${{ secrets.ECS_WEB_SERVICE }}; then
+
+            echo "❌ Web service failed to stabilize"
+            echo ""
+            echo "Fetching recent task logs from CloudWatch..."
+
+            # Get the most recent task ARN
+            TASK_ARN=$(aws ecs list-tasks \
+              --cluster ${{ secrets.ECS_CLUSTER_NAME }} \
+              --service-name ${{ secrets.ECS_WEB_SERVICE }} \
+              --query 'taskArns[0]' \
+              --output text)
+
+            if [ "$TASK_ARN" != "None" ] && [ -n "$TASK_ARN" ]; then
+              TASK_ID=$(echo $TASK_ARN | awk -F/ '{print $NF}')
+
+              # Get log configuration from task definition
+              TASK_DEF=$(aws ecs describe-services \
+                --cluster ${{ secrets.ECS_CLUSTER_NAME }} \
+                --services ${{ secrets.ECS_WEB_SERVICE }} \
+                --query 'services[0].taskDefinition' \
+                --output text)
+
+              LOG_CONFIG=$(aws ecs describe-task-definition \
+                --task-definition $TASK_DEF \
+                --query 'taskDefinition.containerDefinitions[0].logConfiguration.options')
+
+              LOG_GROUP=$(echo $LOG_CONFIG | jq -r '.["awslogs-group"]')
+              LOG_PREFIX=$(echo $LOG_CONFIG | jq -r '.["awslogs-stream-prefix"]')
+              LOG_STREAM="${LOG_PREFIX}/web/${TASK_ID}"
+
+              echo "Log stream: $LOG_GROUP/$LOG_STREAM"
+              echo ""
+
+              aws logs get-log-events \
+                --log-group-name "$LOG_GROUP" \
+                --log-stream-name "$LOG_STREAM" \
+                --limit 100 \
+                --query 'events[*].message' \
+                --output text || echo "Could not fetch logs. Check CloudWatch at: $LOG_GROUP/$LOG_STREAM"
+            fi
+
+            exit 1
+          fi
+
+          echo "Checking API service deployment status..."
+          aws ecs describe-services \
+            --cluster ${{ secrets.ECS_CLUSTER_NAME }} \
+            --services ${{ secrets.ECS_API_SERVICE }} \
+            --query 'services[0].{runningCount:runningCount,desiredCount:desiredCount,deployments:deployments[*].{status:status,desiredCount:desiredCount,runningCount:runningCount,rolloutState:rolloutState},events:events[:3]}' \
+            --output json
 
           echo "Waiting for API service to stabilize..."
-          aws ecs wait services-stable \
+          if ! aws ecs wait services-stable \
             --cluster ${{ secrets.ECS_CLUSTER_NAME }} \
-            --services ${{ secrets.ECS_API_SERVICE }}
+            --services ${{ secrets.ECS_API_SERVICE }}; then
+
+            echo "❌ API service failed to stabilize"
+            echo ""
+            echo "Fetching recent task logs from CloudWatch..."
+
+            # Get the most recent task ARN
+            TASK_ARN=$(aws ecs list-tasks \
+              --cluster ${{ secrets.ECS_CLUSTER_NAME }} \
+              --service-name ${{ secrets.ECS_API_SERVICE }} \
+              --query 'taskArns[0]' \
+              --output text)
+
+            if [ "$TASK_ARN" != "None" ] && [ -n "$TASK_ARN" ]; then
+              TASK_ID=$(echo $TASK_ARN | awk -F/ '{print $NF}')
+
+              # Get log configuration from task definition
+              TASK_DEF=$(aws ecs describe-services \
+                --cluster ${{ secrets.ECS_CLUSTER_NAME }} \
+                --services ${{ secrets.ECS_API_SERVICE }} \
+                --query 'services[0].taskDefinition' \
+                --output text)
+
+              LOG_CONFIG=$(aws ecs describe-task-definition \
+                --task-definition $TASK_DEF \
+                --query 'taskDefinition.containerDefinitions[0].logConfiguration.options')
+
+              LOG_GROUP=$(echo $LOG_CONFIG | jq -r '.["awslogs-group"]')
+              LOG_PREFIX=$(echo $LOG_CONFIG | jq -r '.["awslogs-stream-prefix"]')
+              LOG_STREAM="${LOG_PREFIX}/api/${TASK_ID}"
+
+              echo "Log stream: $LOG_GROUP/$LOG_STREAM"
+              echo ""
+
+              aws logs get-log-events \
+                --log-group-name "$LOG_GROUP" \
+                --log-stream-name "$LOG_STREAM" \
+                --limit 100 \
+                --query 'events[*].message' \
+                --output text || echo "Could not fetch logs. Check CloudWatch at: $LOG_GROUP/$LOG_STREAM"
+            fi
+
+            exit 1
+          fi
 
           echo "✅ Deployment complete!"
 

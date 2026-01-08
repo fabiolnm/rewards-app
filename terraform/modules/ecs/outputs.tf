@@ -57,3 +57,8 @@ output "task_role_arn" {
   description = "ECS task role ARN"
   value       = aws_iam_role.ecs_task.arn
 }
+
+output "api_log_group_name" {
+  description = "CloudWatch log group name for API service"
+  value       = aws_cloudwatch_log_group.api.name
+}

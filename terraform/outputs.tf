@@ -74,3 +74,8 @@ output "api_url" {
   description = "API URL (check ECS console for public IP after deployment)"
   value       = "Check ECS console for Fargate task public IP"
 }
+
+output "api_log_group_name" {
+  description = "CloudWatch log group name for API service migrations"
+  value       = module.ecs.api_log_group_name
+}

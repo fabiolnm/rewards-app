@@ -1,0 +1,30 @@
+# Test coverage
+coverage/
+.nyc_output/
+
+# Environment files
+.env*
+!.env.example
+
+# Git
+.git
+.gitignore
+
+# Documentation
+*.md
+docs/
+
+# CI/CD
+.github/
+.pre-commit-config.yaml
+
+# IDE
+.vscode/
+.idea/
+
+# Dependencies
+node_modules/
+vendor/
+
+# Logs
+*.log

@@ -1,3 +1,6 @@
+# Environment
+.env
+
 # Node.js
 node_modules/
 
@@ -12,6 +15,7 @@ docker-compose.override.yml
 *.tfstate.*
 *.tfvars
 *.tfplan
+*.tfbackend
 tfplan
 crash.log
 crash.*.log

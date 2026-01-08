@@ -110,27 +110,60 @@ export class ErrorBoundary extends Component<Props, State> {
 2. **terraform/modules/ecs/main.tf** - Add SENTRY_DSN to task definitions
 3. **terraform/modules/ecs/secrets.tf** (new) - Parameter Store for Sentry
 4. **.github/workflows/deploy.yml** - Add GIT_SHA env var, source map upload
+5. **terraform/setup-github-secrets.sh** - Add Sentry secrets prompts
+6. **.env.example** - Template for local Sentry configuration
+7. **.mise.toml** - Add `tf:init` task
 
 ### Secret Management
 
-- Store Sentry DSNs in AWS Parameter Store:
-  - `/${project_name}/SENTRY_DSN` (backend)
-  - `/${project_name}/SENTRY_DSN_WEB` (frontend - build-time)
-  - `/${project_name}/SENTRY_AUTH_TOKEN` (CI/CD source map upload)
+**Local Development:**
+
+- Create `.env` file (gitignored) with Sentry credentials
+- `terraform/setup-github-secrets.sh` auto-loads `.env` for GitHub secrets setup
+
+```bash
+# .env (copy from .env.example)
+SENTRY_DSN_API=https://xxx@xxx.ingest.sentry.io/xxx
+SENTRY_DSN_WEB=https://xxx@xxx.ingest.sentry.io/xxx
+SENTRY_AUTH_TOKEN=sntrys_xxx
+SENTRY_ORG=your-org
+SENTRY_PROJECT_WEB=rewards-web
+```
+
+**AWS Parameter Store (created by Terraform):**
+
+- `/${project_name}/SENTRY_DSN` - Backend DSN (from `TF_VAR_sentry_dsn`)
+
+**GitHub Secrets (set by setup script):**
+
+- `SENTRY_DSN_API` - Passed to Terraform as `TF_VAR_sentry_dsn`
+- `SENTRY_DSN_WEB` - Frontend build-time DSN
+- `SENTRY_AUTH_TOKEN` - Source map upload authentication
+- `SENTRY_ORG` - Sentry organization slug
+- `SENTRY_PROJECT_WEB` - Sentry project for frontend
 
 ### Source Map Upload (CI/CD)
 
-```yaml
-# In deploy.yml, after web build
-- name: Upload source maps to Sentry
-  env:
-    SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
-    SENTRY_ORG: your-org
-    SENTRY_PROJECT: rewards-web
-  run: |
-    npx @sentry/cli sourcemaps upload \
-      --release=${{ github.sha }} \
-      ./web/dist
+Source maps are uploaded during Docker build via `@sentry/vite-plugin`:
+
+- Build args: `VITE_SENTRY_DSN`, `VITE_GIT_SHA`, `SENTRY_AUTH_TOKEN`,
+  `SENTRY_ORG`, `SENTRY_PROJECT`
+- Plugin uploads source maps when `SENTRY_AUTH_TOKEN` is present
+
+### Terraform Initialization
+
+New branches need terraform initialized:
+
+```bash
+AWS_PROFILE=admin mise run tf:init
+```
+
+### GitHub Secrets Setup
+
+Run from terraform directory after creating `.env`:
+
+```bash
+cd terraform && AWS_PROFILE=admin ./setup-github-secrets.sh
 ```
 
 ## Environment Configuration
@@ -173,8 +206,15 @@ Do NOT wait until all work is done.**
    - Update ECS task definitions with environment variables
 
 7. **CI/CD: Add source map upload to deploy workflow**
-   - Add Sentry CLI step after web build
-   - Pass GIT_SHA to build
+   - Update web Dockerfile to accept Sentry build args
+   - Update deploy.yml to pass Sentry secrets to Docker build
+   - Update setup-github-secrets.sh to prompt for Sentry secrets
+
+8. **Developer experience: Add .env support and tf:init task**
+   - Add `.env.example` template
+   - Add `.env` to `.gitignore`
+   - Update setup script to auto-load `.env`
+   - Add `mise run tf:init` task for branch initialization
 
 ## Verification
 

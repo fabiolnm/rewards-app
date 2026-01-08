@@ -23,6 +23,41 @@ services:
           memory: 512M
           cpus: '1.0'
 
+  api:
+    build:
+      context: ./api
+      args:
+        RAILS_ENV: development
+    container_name: rewards-app-api
+    restart: unless-stopped
+    ports:
+      - "3001:3000"
+    environment:
+      RAILS_ENV: development
+      RAILS_LOG_TO_STDOUT: "1"
+      DATABASE_HOST: db
+      DATABASE_USER: rewards
+      DATABASE_PASSWORD: ""
+      DATABASE_NAME: rewards_development
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:3000/up || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '1.0'
+    volumes:
+      - ./api/app:/rails/app
+      - ./api/config:/rails/config
+      - ./api/lib:/rails/lib
+      - ./api/db:/rails/db
+
 volumes:
   postgres_data:
     driver: local

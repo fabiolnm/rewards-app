@@ -3,6 +3,7 @@ ruby = "4.0.0"
 # Using pipx backend because pre-commit 4.5.0+ stopped publishing sha256sum files,
 # breaking aqua backend
 "pipx:pre-commit" = "4.5.1"
+hadolint = "2.14.0"
 
 [tasks.setup]
 description = "Install dependencies and pre-commit hooks"

@@ -37,7 +37,11 @@ jobs:
       - name: Run pre-commit checks
         run: pre-commit run --all-files --hook-stage pre-commit
         env:
-          # Skip hooks that run as separate steps or require Ruby setup
-          # Runs: markdownlint, trailing-whitespace, end-of-file-fixer,
-          #       check-yaml, check-added-large-files, check-merge-conflict
+          # Runs: markdownlint, hadolint-docker, trailing-whitespace,
+          #       end-of-file-fixer, check-yaml, check-added-large-files,
+          #       check-merge-conflict
+          # Skipped:
+          #   - check-branch-name (requires git context)
+          #   - validate-commit-author (requires git context)
+          #   - rubocop (separate step)
           SKIP: check-branch-name,validate-commit-author,rubocop

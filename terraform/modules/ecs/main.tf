@@ -42,8 +42,8 @@ resource "aws_security_group" "ecs_tasks" {
   # Web service (HTTP)
   ingress {
     description = "HTTP from anywhere"
-    from_port   = 80
-    to_port     = 80
+    from_port   = 8080
+    to_port     = 8080
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
@@ -162,7 +162,7 @@ resource "aws_ecs_task_definition" "web" {
 
       portMappings = [
         {
-          containerPort = 80
+          containerPort = 8080
           protocol      = "tcp"
         }
       ]
@@ -184,7 +184,7 @@ resource "aws_ecs_task_definition" "web" {
       }
 
       healthCheck = {
-        command     = ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:80/ || exit 1"]
+        command     = ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:8080/health || exit 1"]
         interval    = 30
         timeout     = 5
         retries     = 3
